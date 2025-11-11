@@ -69,6 +69,175 @@ let nextId = 1;
 
 ---
 
+### Pattern: Input Validation for REST APIs
+
+**Context**: When implementing POST/PUT endpoints that accept user input
+
+**Problem**: Endpoints must validate required fields and sanitize input to prevent errors and ensure data quality. Missing or empty strings can cause unexpected behavior downstream.
+
+**Solution**: Validate required fields exist and use `.trim()` to remove whitespace, then check if the trimmed value is empty.
+
+**Example**:
+```javascript
+// ✅ Good - Proper validation
+app.post('/api/todos', (req, res) => {
+  const { title } = req.body;
+
+  // Validate title exists and is not empty after trimming
+  if (!title || title.trim() === '') {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  // Use trimmed value
+  const newTodo = {
+    id: nextId++,
+    title: title.trim(),
+    completed: false,
+    createdAt: new Date().toISOString(),
+  };
+
+  todos.push(newTodo);
+  res.status(201).json(newTodo);
+});
+```
+
+**Related Files**: 
+- `packages/backend/src/app.js` - POST /api/todos endpoint
+
+**Notes**: 
+- Always validate BEFORE processing
+- Use `.trim()` to handle whitespace-only strings
+- Return 400 Bad Request for validation failures
+- Include descriptive error messages
+- Sanitize input even if validation passes
+
+---
+
+### Pattern: Boolean Toggle Logic
+
+**Context**: When implementing toggle functionality for boolean fields
+
+**Problem**: Directly setting a boolean to `true` or `false` doesn't toggle - it always sets the same value regardless of current state.
+
+**Solution**: Use the logical NOT operator (`!`) to invert the current boolean value.
+
+**Example**:
+```javascript
+// ❌ Bad - Always sets to true
+app.patch('/api/todos/:id/toggle', (req, res) => {
+  const todo = todos.find((t) => t.id === id);
+  todo.completed = true; // Bug: doesn't toggle
+  res.json(todo);
+});
+
+// ✅ Good - Properly toggles
+app.patch('/api/todos/:id/toggle', (req, res) => {
+  const todo = todos.find((t) => t.id === id);
+  todo.completed = !todo.completed; // Toggles based on current state
+  res.json(todo);
+});
+```
+
+**Related Files**: 
+- `packages/backend/src/app.js` - PATCH /api/todos/:id/toggle endpoint
+
+**Notes**: 
+- `!true` becomes `false`
+- `!false` becomes `true`
+- This pattern applies to any toggle operation
+- Common bug: forgetting the `!` operator
+
+---
+
+### Pattern: Resource Not Found Handling
+
+**Context**: When implementing endpoints that operate on specific resources by ID (GET, PUT, PATCH, DELETE)
+
+**Problem**: Attempting operations on non-existent resources should return appropriate HTTP status codes, not crash or return misleading success messages.
+
+**Solution**: Always check if the resource exists before operating on it. Return 404 with descriptive error if not found.
+
+**Example**:
+```javascript
+// ✅ Good - Proper 404 handling
+app.put('/api/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const todo = todos.find((t) => t.id === id);
+  
+  if (!todo) {
+    return res.status(404).json({ error: 'Todo not found' });
+  }
+  
+  // Proceed with update
+  todo.title = req.body.title;
+  res.json(todo);
+});
+
+app.delete('/api/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const index = todos.findIndex((t) => t.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ error: 'Todo not found' });
+  }
+  
+  todos.splice(index, 1);
+  res.json({ message: 'Todo deleted successfully' });
+});
+```
+
+**Related Files**: 
+- `packages/backend/src/app.js` - PUT, PATCH, DELETE endpoints
+
+**Notes**: 
+- Use `find()` to get the object, `findIndex()` when you need to remove it
+- Always `return` after sending 404 to prevent further execution
+- 404 is the standard HTTP code for "resource not found"
+- Include descriptive error messages for debugging
+
+---
+
+### Pattern: Preserving Partial Updates
+
+**Context**: When implementing PUT endpoints that should update only specific fields
+
+**Problem**: Full replacement vs partial update - PUT typically means full replacement, but sometimes you want to update only certain fields while preserving others.
+
+**Solution**: In REST APIs, use PUT for partial updates with explicit field preservation logic, or use PATCH for partial updates.
+
+**Example**:
+```javascript
+// ✅ Good - Preserves completed status when updating title
+app.put('/api/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const { title } = req.body;
+  
+  const todo = todos.find((t) => t.id === id);
+  
+  if (!todo) {
+    return res.status(404).json({ error: 'Todo not found' });
+  }
+  
+  // Update only the title, preserve completed status
+  if (title !== undefined) {
+    todo.title = title;
+  }
+  
+  res.json(todo);
+});
+```
+
+**Related Files**: 
+- `packages/backend/src/app.js` - PUT /api/todos/:id endpoint
+
+**Notes**: 
+- Check `if (field !== undefined)` to distinguish between omitted and explicitly set to undefined
+- Document which fields can be updated via which endpoints
+- Consider using PATCH for partial updates, PUT for full replacement
+- In this implementation, PUT only updates title, not completed status
+
+---
+
 ### Pattern: [Your Next Pattern]
 
 **Context**: 
@@ -94,9 +263,14 @@ As patterns accumulate, organize them into categories:
 
 ### Data Management
 - Service Initialization - Empty Array vs Null
+- Input Validation for REST APIs
 
 ### API Design
-- (Patterns to be added)
+- Resource Not Found Handling (404 responses)
+- Preserving Partial Updates (PUT vs PATCH semantics)
+
+### Business Logic
+- Boolean Toggle Logic
 
 ### Error Handling
 - (Patterns to be added)
