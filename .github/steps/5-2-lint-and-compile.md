@@ -73,6 +73,6 @@ To complete this exercise successfully:
 
 ✨ **Workflow Automation**: Using `/validate-step` and `/commit-and-push` prompts to progress through steps
 
----
+--- 
 
 Wait for Step 5-3 instructions to appear in this issue...
